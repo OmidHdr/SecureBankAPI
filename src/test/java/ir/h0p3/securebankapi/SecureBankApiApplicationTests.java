@@ -1,0 +1,15 @@
+package ir.h0p3.securebankapi;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+
+@Import(TestcontainersConfiguration.class)
+@SpringBootTest
+class SecureBankApiApplicationTests {
+
+    @Test
+    void contextLoads() {
+    }
+
+}

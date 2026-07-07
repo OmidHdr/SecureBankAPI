@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: SecureBankAPI
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/secure_bank_db
+    username: postgres
+    password: postgres
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+  flyway:
+    enabled: true
