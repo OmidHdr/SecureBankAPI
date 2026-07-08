@@ -27,8 +27,9 @@ public class User {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private String role;
+    private UserRole role;
 
     @Column(nullable = false)
     private Boolean enabled;
