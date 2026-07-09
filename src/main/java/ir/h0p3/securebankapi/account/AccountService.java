@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +23,8 @@ public class AccountService {
     private final UserRepository userRepository;
     private final SecureRandom secureRandom = new SecureRandom();
 
+
+    // Section create account
     public AccountResponse createAccount(Authentication authentication) {
         String email = authentication.getName();
 
@@ -69,4 +72,19 @@ public class AccountService {
                 account.getStatus()
         );
     }
+
+    // Section Get user accounts
+    public List<AccountResponse> getMyAccounts(Authentication authentication) {
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        return accountRepository.findByUserId(user.getId())
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+
 }
