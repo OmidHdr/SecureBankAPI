@@ -2,6 +2,7 @@ package ir.h0p3.securebankapi.transaction;
 
 import ir.h0p3.securebankapi.transaction.dto.DepositRequest;
 import ir.h0p3.securebankapi.transaction.dto.TransactionResponse;
+import ir.h0p3.securebankapi.transaction.dto.TransferRequest;
 import ir.h0p3.securebankapi.transaction.dto.WithdrawRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,5 +30,13 @@ public class TransactionController {
             Authentication authentication
     ) {
         return transactionService.withdraw(request, authentication);
+    }
+
+    @PostMapping("/transfer")
+    public TransactionResponse transfer(
+            @Valid @RequestBody TransferRequest request,
+            Authentication authentication
+    ) {
+        return transactionService.transfer(request, authentication);
     }
 }

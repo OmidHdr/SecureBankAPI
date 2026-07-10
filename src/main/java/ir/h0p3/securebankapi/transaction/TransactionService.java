@@ -5,6 +5,7 @@ import ir.h0p3.securebankapi.account.AccountRepository;
 import ir.h0p3.securebankapi.account.AccountStatus;
 import ir.h0p3.securebankapi.transaction.dto.DepositRequest;
 import ir.h0p3.securebankapi.transaction.dto.TransactionResponse;
+import ir.h0p3.securebankapi.transaction.dto.TransferRequest;
 import ir.h0p3.securebankapi.transaction.dto.WithdrawRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -91,6 +92,74 @@ public class TransactionService {
                 .toAccount(null)
                 .amount(request.amount())
                 .type(TransactionType.WITHDRAW)
+                .status(TransactionStatus.SUCCESS)
+                .description(request.description())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Transaction savedTransaction = transactionRepository.save(transaction);
+
+        return toResponse(savedTransaction);
+    }
+
+
+    @Transactional
+    public TransactionResponse transfer(
+            TransferRequest request,
+            Authentication authentication
+    ) {
+        if (request.fromAccountNumber().equals(request.toAccountNumber())) {
+            throw new IllegalArgumentException(
+                    "Source and destination accounts must be different"
+            );
+        }
+
+        Account fromAccount = accountRepository
+                .findByAccountNumber(request.fromAccountNumber())
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Source account not found")
+                );
+
+        Account toAccount = accountRepository
+                .findByAccountNumber(request.toAccountNumber())
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Destination account not found")
+                );
+
+        if (!fromAccount.getUser().getEmail().equals(authentication.getName())) {
+            throw new IllegalArgumentException(
+                    "You are not allowed to transfer from this account"
+            );
+        }
+
+        if (fromAccount.getStatus() != AccountStatus.ACTIVE) {
+            throw new IllegalArgumentException("Source account is not active");
+        }
+
+        if (toAccount.getStatus() != AccountStatus.ACTIVE) {
+            throw new IllegalArgumentException("Destination account is not active");
+        }
+
+        if (fromAccount.getBalance().compareTo(request.amount()) < 0) {
+            throw new IllegalArgumentException("Insufficient balance");
+        }
+
+        fromAccount.setBalance(
+                fromAccount.getBalance().subtract(request.amount())
+        );
+
+        toAccount.setBalance(
+                toAccount.getBalance().add(request.amount())
+        );
+
+        accountRepository.save(fromAccount);
+        accountRepository.save(toAccount);
+
+        Transaction transaction = Transaction.builder()
+                .fromAccount(fromAccount)
+                .toAccount(toAccount)
+                .amount(request.amount())
+                .type(TransactionType.TRANSFER)
                 .status(TransactionStatus.SUCCESS)
                 .description(request.description())
                 .createdAt(LocalDateTime.now())
