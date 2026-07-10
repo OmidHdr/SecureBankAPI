@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/transactions")
 @RequiredArgsConstructor
@@ -38,5 +40,16 @@ public class TransactionController {
             Authentication authentication
     ) {
         return transactionService.transfer(request, authentication);
+    }
+
+    @GetMapping("/account/{accountNumber}")
+    public List<TransactionResponse> getAccountTransactions(
+            @PathVariable String accountNumber,
+            Authentication authentication
+    ) {
+        return transactionService.getAccountTransactions(
+                accountNumber,
+                authentication
+        );
     }
 }

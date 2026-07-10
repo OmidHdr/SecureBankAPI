@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -168,5 +169,29 @@ public class TransactionService {
         Transaction savedTransaction = transactionRepository.save(transaction);
 
         return toResponse(savedTransaction);
+    }
+
+
+    public List<TransactionResponse> getAccountTransactions(
+            String accountNumber,
+            Authentication authentication
+    ) {
+        Account account = accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Account not found"));
+
+        if (!account.getUser().getEmail().equals(authentication.getName())) {
+            throw new IllegalArgumentException(
+                    "You are not allowed to access this account"
+            );
+        }
+
+        return transactionRepository
+                .findByFromAccountIdOrToAccountIdOrderByCreatedAtDesc(
+                        account.getId(),
+                        account.getId()
+                )
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 }
