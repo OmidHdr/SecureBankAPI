@@ -4,10 +4,12 @@ import ir.h0p3.securebankapi.auth.dto.AuthResponse;
 import ir.h0p3.securebankapi.auth.dto.LoginRequest;
 import ir.h0p3.securebankapi.auth.dto.RegisterRequest;
 import ir.h0p3.securebankapi.auth.security.JwtService;
+import ir.h0p3.securebankapi.common.exception.ConflictException;
 import ir.h0p3.securebankapi.user.User;
 import ir.h0p3.securebankapi.user.UserRepository;
 import ir.h0p3.securebankapi.user.UserRole;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +25,7 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new IllegalArgumentException("Email already exists");
+            throw new ConflictException("Email already exists");
         }
 
         User user = User.builder()
@@ -44,10 +46,10 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new IllegalArgumentException("Invalid email or password");
+            throw new BadCredentialsException("Invalid email or password");
         }
 
         String token = jwtService.generateToken(user.getEmail());

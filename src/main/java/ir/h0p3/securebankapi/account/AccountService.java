@@ -1,6 +1,7 @@
 package ir.h0p3.securebankapi.account;
 
 import ir.h0p3.securebankapi.account.dto.AccountResponse;
+import ir.h0p3.securebankapi.common.exception.ResourceNotFoundException;
 import ir.h0p3.securebankapi.user.User;
 import ir.h0p3.securebankapi.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class AccountService {
         String email = authentication.getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Account account = Account.builder()
                 .accountNumber(generateUniqueAccountNumber())
@@ -78,7 +79,7 @@ public class AccountService {
         String email = authentication.getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return accountRepository.findByUserId(user.getId())
                 .stream()

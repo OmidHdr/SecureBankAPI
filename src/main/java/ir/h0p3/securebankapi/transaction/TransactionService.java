@@ -3,12 +3,16 @@ package ir.h0p3.securebankapi.transaction;
 import ir.h0p3.securebankapi.account.Account;
 import ir.h0p3.securebankapi.account.AccountRepository;
 import ir.h0p3.securebankapi.account.AccountStatus;
+import ir.h0p3.securebankapi.common.exception.BadRequestException;
+import ir.h0p3.securebankapi.common.exception.ForbiddenException;
+import ir.h0p3.securebankapi.common.exception.ResourceNotFoundException;
 import ir.h0p3.securebankapi.transaction.dto.DepositRequest;
 import ir.h0p3.securebankapi.transaction.dto.TransactionResponse;
 import ir.h0p3.securebankapi.transaction.dto.TransferRequest;
 import ir.h0p3.securebankapi.transaction.dto.WithdrawRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
@@ -25,14 +29,14 @@ public class TransactionService {
     @Transactional
     public TransactionResponse deposit(DepositRequest request, Authentication authentication) {
         Account account = accountRepository.findByAccountNumber(request.accountNumber())
-                .orElseThrow(() -> new IllegalArgumentException("Account not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
 
         if (!account.getUser().getEmail().equals(authentication.getName())) {
-            throw new IllegalArgumentException("You are not allowed to access this account");
+            throw new ForbiddenException("You are not allowed to access this account");
         }
 
         if (account.getStatus() != AccountStatus.ACTIVE) {
-            throw new IllegalArgumentException("Account is not active");
+            throw new BadRequestException("Account is not active");
         }
 
         account.setBalance(account.getBalance().add(request.amount()));
@@ -71,18 +75,18 @@ public class TransactionService {
     @Transactional
     public TransactionResponse withdraw(WithdrawRequest request, Authentication authentication) {
         Account account = accountRepository.findByAccountNumber(request.accountNumber())
-                .orElseThrow(() -> new IllegalArgumentException("Account not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
 
         if (!account.getUser().getEmail().equals(authentication.getName())) {
-            throw new IllegalArgumentException("You are not allowed to access this account");
+            throw new ForbiddenException("You are not allowed to access this account");
         }
 
         if (account.getStatus() != AccountStatus.ACTIVE) {
-            throw new IllegalArgumentException("Account is not active");
+            throw new BadRequestException("Account is not active");
         }
 
         if (account.getBalance().compareTo(request.amount()) < 0) {
-            throw new IllegalArgumentException("Insufficient balance");
+            throw new BadRequestException("Insufficient balance");
         }
 
         account.setBalance(account.getBalance().subtract(request.amount()));
@@ -110,7 +114,7 @@ public class TransactionService {
             Authentication authentication
     ) {
         if (request.fromAccountNumber().equals(request.toAccountNumber())) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "Source and destination accounts must be different"
             );
         }
@@ -118,31 +122,31 @@ public class TransactionService {
         Account fromAccount = accountRepository
                 .findByAccountNumber(request.fromAccountNumber())
                 .orElseThrow(() ->
-                        new IllegalArgumentException("Source account not found")
+                        new BadCredentialsException("Source account not found")
                 );
 
         Account toAccount = accountRepository
                 .findByAccountNumber(request.toAccountNumber())
                 .orElseThrow(() ->
-                        new IllegalArgumentException("Destination account not found")
+                        new BadRequestException("Destination account not found")
                 );
 
         if (!fromAccount.getUser().getEmail().equals(authentication.getName())) {
-            throw new IllegalArgumentException(
+            throw new ForbiddenException(
                     "You are not allowed to transfer from this account"
             );
         }
 
         if (fromAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw new IllegalArgumentException("Source account is not active");
+            throw new BadRequestException("Source account is not active");
         }
 
         if (toAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw new IllegalArgumentException("Destination account is not active");
+            throw new BadRequestException("Destination account is not active");
         }
 
         if (fromAccount.getBalance().compareTo(request.amount()) < 0) {
-            throw new IllegalArgumentException("Insufficient balance");
+            throw new BadRequestException("Insufficient balance");
         }
 
         fromAccount.setBalance(
@@ -177,10 +181,10 @@ public class TransactionService {
             Authentication authentication
     ) {
         Account account = accountRepository.findByAccountNumber(accountNumber)
-                .orElseThrow(() -> new IllegalArgumentException("Account not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
 
         if (!account.getUser().getEmail().equals(authentication.getName())) {
-            throw new IllegalArgumentException(
+            throw new ForbiddenException(
                     "You are not allowed to access this account"
             );
         }
