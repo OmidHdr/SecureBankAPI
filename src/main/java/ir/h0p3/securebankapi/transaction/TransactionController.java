@@ -1,5 +1,6 @@
 package ir.h0p3.securebankapi.transaction;
 
+import ir.h0p3.securebankapi.common.response.PagedResponse;
 import ir.h0p3.securebankapi.transaction.dto.DepositRequest;
 import ir.h0p3.securebankapi.transaction.dto.TransactionResponse;
 import ir.h0p3.securebankapi.transaction.dto.TransferRequest;
@@ -43,12 +44,16 @@ public class TransactionController {
     }
 
     @GetMapping("/account/{accountNumber}")
-    public List<TransactionResponse> getAccountTransactions(
+    public PagedResponse<TransactionResponse> getAccountTransactions(
             @PathVariable String accountNumber,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             Authentication authentication
     ) {
         return transactionService.getAccountTransactions(
                 accountNumber,
+                page,
+                size,
                 authentication
         );
     }

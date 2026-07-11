@@ -1,13 +1,15 @@
 package ir.h0p3.securebankapi.transaction;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
-    List<Transaction> findByFromAccountIdOrToAccountIdOrderByCreatedAtDesc(
+    Page<Transaction> findByFromAccountIdOrToAccountId(
             Long fromAccountId,
-            Long toAccountId
+            Long toAccountId,
+            Pageable pageable
     );
 }
