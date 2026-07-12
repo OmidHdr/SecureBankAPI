@@ -188,6 +188,8 @@ public class TransactionService {
             String accountNumber,
             int page,
             int size,
+            TransactionType type,
+            String sortDirection,
             Authentication authentication
     ) {
         validatePagination(page, size);
@@ -203,21 +205,38 @@ public class TransactionService {
             );
         }
 
+        Sort.Direction direction = parseSortDirection(sortDirection);
+
         Pageable pageable = PageRequest.of(
                 page,
                 size,
-                Sort.by(Sort.Direction.DESC, "createdAt")
+                Sort.by(direction, "createdAt")
         );
 
-        Page<TransactionResponse> transactions = transactionRepository
-                .findByFromAccountIdOrToAccountId(
-                        account.getId(),
-                        account.getId(),
-                        pageable
-                )
-                .map(this::toResponse);
+        Page<Transaction> transactionPage;
 
-        return PagedResponse.from(transactions);
+        if (type == null) {
+            transactionPage = transactionRepository
+                    .findByFromAccountIdOrToAccountId(
+                            account.getId(),
+                            account.getId(),
+                            pageable
+                    );
+        } else {
+            transactionPage = transactionRepository
+                    .findByTypeAndFromAccountIdOrTypeAndToAccountId(
+                            type,
+                            account.getId(),
+                            type,
+                            account.getId(),
+                            pageable
+                    );
+        }
+
+        Page<TransactionResponse> responsePage =
+                transactionPage.map(this::toResponse);
+
+        return PagedResponse.from(responsePage);
     }
 
     private void validatePagination(int page, int size) {
@@ -236,6 +255,20 @@ public class TransactionService {
         if (size > MAX_PAGE_SIZE) {
             throw new BadRequestException(
                     "Page size must not be greater than " + MAX_PAGE_SIZE
+            );
+        }
+    }
+
+    private Sort.Direction parseSortDirection(String sortDirection) {
+        if (sortDirection == null || sortDirection.isBlank()) {
+            return Sort.Direction.DESC;
+        }
+
+        try {
+            return Sort.Direction.fromString(sortDirection);
+        } catch (IllegalArgumentException exception) {
+            throw new BadRequestException(
+                    "Sort direction must be ASC or DESC"
             );
         }
     }

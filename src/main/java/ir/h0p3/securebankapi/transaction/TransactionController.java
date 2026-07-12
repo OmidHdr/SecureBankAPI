@@ -46,14 +46,27 @@ public class TransactionController {
     @GetMapping("/account/{accountNumber}")
     public PagedResponse<TransactionResponse> getAccountTransactions(
             @PathVariable String accountNumber,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+
+            @RequestParam(defaultValue = "0")
+            int page,
+
+            @RequestParam(defaultValue = "10")
+            int size,
+
+            @RequestParam(required = false)
+            TransactionType type,
+
+            @RequestParam(defaultValue = "DESC")
+            String sortDirection,
+
             Authentication authentication
     ) {
         return transactionService.getAccountTransactions(
                 accountNumber,
                 page,
                 size,
+                type,
+                sortDirection,
                 authentication
         );
     }

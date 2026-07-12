@@ -12,4 +12,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             Long toAccountId,
             Pageable pageable
     );
+
+    Page<Transaction> findByTypeAndFromAccountIdOrTypeAndToAccountId(
+            TransactionType fromType,
+            Long fromAccountId,
+            TransactionType toType,
+            Long toAccountId,
+            Pageable pageable
+    );
 }
