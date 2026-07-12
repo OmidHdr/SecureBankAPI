@@ -17,3 +17,15 @@ spring:
 jwt:
   secret: "8a5e7e92-02a9-493f-91bf-f3a9b9d2ceb6"
   expiration: 86400000
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
+  swagger-ui:
+    path: /swagger-ui.html
+    display-request-duration: true
+    operations-sorter: method
+    tags-sorter: alpha
+
+  show-actuator: false

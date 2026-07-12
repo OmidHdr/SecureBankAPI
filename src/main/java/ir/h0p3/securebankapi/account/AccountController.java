@@ -1,5 +1,6 @@
 package ir.h0p3.securebankapi.account;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import ir.h0p3.securebankapi.account.dto.AccountResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -8,6 +9,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Tag(
+        name = "Accounts",
+        description = "Bank account management endpoints"
+)
 @RestController
 @RequestMapping("/api/accounts")
 @RequiredArgsConstructor
