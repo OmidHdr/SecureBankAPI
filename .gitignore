@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+logs/
+*.log
+
+.env
+.env.local
+.env.*.local
