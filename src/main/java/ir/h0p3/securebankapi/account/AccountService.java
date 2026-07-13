@@ -5,6 +5,7 @@ import ir.h0p3.securebankapi.common.exception.ResourceNotFoundException;
 import ir.h0p3.securebankapi.user.User;
 import ir.h0p3.securebankapi.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +14,7 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AccountService {
@@ -42,7 +44,23 @@ public class AccountService {
 
         Account savedAccount = accountRepository.save(account);
 
+        log.info(
+                "Bank account created: accountId={}, accountNumber={}, userId={}",
+                savedAccount.getId(),
+                maskAccountNumber(savedAccount.getAccountNumber()),
+                user.getId()
+        );
+
         return toResponse(savedAccount);
+    }
+
+    private String maskAccountNumber(String accountNumber) {
+        if (accountNumber == null || accountNumber.length() < 4) {
+            return "****";
+        }
+
+        return "*".repeat(accountNumber.length() - 4)
+                + accountNumber.substring(accountNumber.length() - 4);
     }
 
     private String generateUniqueAccountNumber() {

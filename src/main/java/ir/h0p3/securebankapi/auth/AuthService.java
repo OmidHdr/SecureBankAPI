@@ -9,12 +9,14 @@ import ir.h0p3.securebankapi.user.User;
 import ir.h0p3.securebankapi.user.UserRepository;
 import ir.h0p3.securebankapi.user.UserRole;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -24,7 +26,12 @@ public class AuthService {
     private final JwtService jwtService;
 
     public AuthResponse register(RegisterRequest request) {
+        log.info("User registration requested for email={}", request.email());
+
         if (userRepository.findByEmail(request.email()).isPresent()) {
+            log.warn("Registration failed because email already exists: email={}",
+                    request.email());
+
             throw new ConflictException("Email already exists");
         }
 
@@ -37,23 +44,51 @@ public class AuthService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
 
-        String token = jwtService.generateToken(user.getEmail());
+        log.info(
+                "User registered successfully: userId={}, email={}",
+                savedUser.getId(),
+                savedUser.getEmail()
+        );
+
+        String token = jwtService.generateToken(savedUser.getEmail());
 
         return new AuthResponse(token);
     }
 
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
+        log.info("Login requested for email={}", request.email());
 
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new BadCredentialsException("Invalid email or password");
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> {
+                    log.warn("Login failed for unknown email={}", request.email());
+
+                    return new BadCredentialsException(
+                            "Invalid email or password"
+                    );
+                });
+
+        if (!passwordEncoder.matches(
+                request.password(),
+                user.getPasswordHash()
+        )) {
+            log.warn("Login failed because password was invalid: email={}",
+                    request.email());
+
+            throw new BadCredentialsException(
+                    "Invalid email or password"
+            );
         }
 
-        String token = jwtService.generateToken(user.getEmail());
+        log.info(
+                "User logged in successfully: userId={}, email={}",
+                user.getId(),
+                user.getEmail()
+        );
 
-        return new AuthResponse(token);
+        return new AuthResponse(
+                jwtService.generateToken(user.getEmail())
+        );
     }
 }

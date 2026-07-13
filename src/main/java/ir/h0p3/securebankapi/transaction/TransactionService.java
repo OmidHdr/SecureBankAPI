@@ -13,41 +13,79 @@ import ir.h0p3.securebankapi.transaction.dto.TransferRequest;
 import ir.h0p3.securebankapi.transaction.dto.WithdrawRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
-import static org.hibernate.dialect.SybaseASEDialect.MAX_PAGE_SIZE;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
 
-    private final AccountRepository accountRepository;
-    private final TransactionRepository transactionRepository;
     private static final int MAX_PAGE_SIZE = 100;
 
-    @Transactional
-    public TransactionResponse deposit(DepositRequest request, Authentication authentication) {
-        Account account = accountRepository.findByAccountNumber(request.accountNumber())
-                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+    private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
 
-        if (!account.getUser().getEmail().equals(authentication.getName())) {
-            throw new ForbiddenException("You are not allowed to access this account");
+    @Transactional
+    public TransactionResponse deposit(
+            DepositRequest request,
+            Authentication authentication
+    ) {
+        log.debug(
+                "Deposit requested: account={}, amount={}, user={}",
+                maskAccountNumber(request.accountNumber()),
+                request.amount(),
+                authentication.getName()
+        );
+
+        Account account = accountRepository
+                .findByAccountNumber(request.accountNumber())
+                .orElseThrow(() -> {
+                    log.warn(
+                            "Deposit rejected because account was not found: account={}",
+                            maskAccountNumber(request.accountNumber())
+                    );
+
+                    return new ResourceNotFoundException(
+                            "Account not found"
+                    );
+                });
+
+        if (!isAccountOwner(account, authentication)) {
+            log.warn(
+                    "Unauthorized deposit attempt: account={}, authenticatedUser={}",
+                    maskAccountNumber(account.getAccountNumber()),
+                    authentication.getName()
+            );
+
+            throw new ForbiddenException(
+                    "You are not allowed to access this account"
+            );
         }
 
         if (account.getStatus() != AccountStatus.ACTIVE) {
-            throw new BadRequestException("Account is not active");
+            log.warn(
+                    "Deposit rejected because account is not active: account={}, status={}",
+                    maskAccountNumber(account.getAccountNumber()),
+                    account.getStatus()
+            );
+
+            throw new BadRequestException(
+                    "Account is not active"
+            );
         }
 
-        account.setBalance(account.getBalance().add(request.amount()));
+        account.setBalance(
+                account.getBalance().add(request.amount())
+        );
+
         accountRepository.save(account);
 
         Transaction transaction = Transaction.builder()
@@ -60,44 +98,84 @@ public class TransactionService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        Transaction savedTransaction = transactionRepository.save(transaction);
+        Transaction savedTransaction =
+                transactionRepository.save(transaction);
+
+        log.info(
+                "Deposit completed: transactionId={}, account={}, amount={}",
+                savedTransaction.getId(),
+                maskAccountNumber(account.getAccountNumber()),
+                request.amount()
+        );
 
         return toResponse(savedTransaction);
     }
 
-    //Todo add mapstruct later
-    private TransactionResponse toResponse(Transaction transaction) {
-        return new TransactionResponse(
-                transaction.getId(),
-                transaction.getFromAccount() == null ? null : transaction.getFromAccount().getAccountNumber(),
-                transaction.getToAccount() == null ? null : transaction.getToAccount().getAccountNumber(),
-                transaction.getAmount(),
-                transaction.getType(),
-                transaction.getStatus(),
-                transaction.getDescription(),
-                transaction.getCreatedAt()
-        );
-    }
-
-
     @Transactional
-    public TransactionResponse withdraw(WithdrawRequest request, Authentication authentication) {
-        Account account = accountRepository.findByAccountNumber(request.accountNumber())
-                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+    public TransactionResponse withdraw(
+            WithdrawRequest request,
+            Authentication authentication
+    ) {
+        log.debug(
+                "Withdrawal requested: account={}, amount={}, user={}",
+                maskAccountNumber(request.accountNumber()),
+                request.amount(),
+                authentication.getName()
+        );
 
-        if (!account.getUser().getEmail().equals(authentication.getName())) {
-            throw new ForbiddenException("You are not allowed to access this account");
+        Account account = accountRepository
+                .findByAccountNumber(request.accountNumber())
+                .orElseThrow(() -> {
+                    log.warn(
+                            "Withdrawal rejected because account was not found: account={}",
+                            maskAccountNumber(request.accountNumber())
+                    );
+
+                    return new ResourceNotFoundException(
+                            "Account not found"
+                    );
+                });
+
+        if (!isAccountOwner(account, authentication)) {
+            log.warn(
+                    "Unauthorized withdrawal attempt: account={}, authenticatedUser={}",
+                    maskAccountNumber(account.getAccountNumber()),
+                    authentication.getName()
+            );
+
+            throw new ForbiddenException(
+                    "You are not allowed to access this account"
+            );
         }
 
         if (account.getStatus() != AccountStatus.ACTIVE) {
-            throw new BadRequestException("Account is not active");
+            log.warn(
+                    "Withdrawal rejected because account is not active: account={}, status={}",
+                    maskAccountNumber(account.getAccountNumber()),
+                    account.getStatus()
+            );
+
+            throw new BadRequestException(
+                    "Account is not active"
+            );
         }
 
         if (account.getBalance().compareTo(request.amount()) < 0) {
-            throw new BadRequestException("Insufficient balance");
+            log.warn(
+                    "Withdrawal rejected due to insufficient balance: account={}, requestedAmount={}",
+                    maskAccountNumber(account.getAccountNumber()),
+                    request.amount()
+            );
+
+            throw new BadRequestException(
+                    "Insufficient balance"
+            );
         }
 
-        account.setBalance(account.getBalance().subtract(request.amount()));
+        account.setBalance(
+                account.getBalance().subtract(request.amount())
+        );
+
         accountRepository.save(account);
 
         Transaction transaction = Transaction.builder()
@@ -110,18 +188,40 @@ public class TransactionService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        Transaction savedTransaction = transactionRepository.save(transaction);
+        Transaction savedTransaction =
+                transactionRepository.save(transaction);
+
+        log.info(
+                "Withdrawal completed: transactionId={}, account={}, amount={}",
+                savedTransaction.getId(),
+                maskAccountNumber(account.getAccountNumber()),
+                request.amount()
+        );
 
         return toResponse(savedTransaction);
     }
-
 
     @Transactional
     public TransactionResponse transfer(
             TransferRequest request,
             Authentication authentication
     ) {
-        if (request.fromAccountNumber().equals(request.toAccountNumber())) {
+        log.debug(
+                "Transfer requested: fromAccount={}, toAccount={}, amount={}, user={}",
+                maskAccountNumber(request.fromAccountNumber()),
+                maskAccountNumber(request.toAccountNumber()),
+                request.amount(),
+                authentication.getName()
+        );
+
+        if (request.fromAccountNumber()
+                .equals(request.toAccountNumber())) {
+
+            log.warn(
+                    "Transfer rejected because source and destination accounts are identical: account={}",
+                    maskAccountNumber(request.fromAccountNumber())
+            );
+
             throw new BadRequestException(
                     "Source and destination accounts must be different"
             );
@@ -129,40 +229,88 @@ public class TransactionService {
 
         Account fromAccount = accountRepository
                 .findByAccountNumber(request.fromAccountNumber())
-                .orElseThrow(() ->
-                        new BadCredentialsException("Source account not found")
-                );
+                .orElseThrow(() -> {
+                    log.warn(
+                            "Transfer rejected because source account was not found: account={}",
+                            maskAccountNumber(request.fromAccountNumber())
+                    );
+
+                    return new ResourceNotFoundException(
+                            "Source account not found"
+                    );
+                });
 
         Account toAccount = accountRepository
                 .findByAccountNumber(request.toAccountNumber())
-                .orElseThrow(() ->
-                        new BadRequestException("Destination account not found")
-                );
+                .orElseThrow(() -> {
+                    log.warn(
+                            "Transfer rejected because destination account was not found: account={}",
+                            maskAccountNumber(request.toAccountNumber())
+                    );
 
-        if (!fromAccount.getUser().getEmail().equals(authentication.getName())) {
+                    return new ResourceNotFoundException(
+                            "Destination account not found"
+                    );
+                });
+
+        if (!isAccountOwner(fromAccount, authentication)) {
+            log.warn(
+                    "Unauthorized transfer attempt: fromAccount={}, authenticatedUser={}",
+                    maskAccountNumber(fromAccount.getAccountNumber()),
+                    authentication.getName()
+            );
+
             throw new ForbiddenException(
                     "You are not allowed to transfer from this account"
             );
         }
 
         if (fromAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw new BadRequestException("Source account is not active");
+            log.warn(
+                    "Transfer rejected because source account is not active: account={}, status={}",
+                    maskAccountNumber(fromAccount.getAccountNumber()),
+                    fromAccount.getStatus()
+            );
+
+            throw new BadRequestException(
+                    "Source account is not active"
+            );
         }
 
         if (toAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw new BadRequestException("Destination account is not active");
+            log.warn(
+                    "Transfer rejected because destination account is not active: account={}, status={}",
+                    maskAccountNumber(toAccount.getAccountNumber()),
+                    toAccount.getStatus()
+            );
+
+            throw new BadRequestException(
+                    "Destination account is not active"
+            );
         }
 
-        if (fromAccount.getBalance().compareTo(request.amount()) < 0) {
-            throw new BadRequestException("Insufficient balance");
+        if (fromAccount.getBalance()
+                .compareTo(request.amount()) < 0) {
+
+            log.warn(
+                    "Transfer rejected due to insufficient balance: account={}, requestedAmount={}",
+                    maskAccountNumber(fromAccount.getAccountNumber()),
+                    request.amount()
+            );
+
+            throw new BadRequestException(
+                    "Insufficient balance"
+            );
         }
 
         fromAccount.setBalance(
-                fromAccount.getBalance().subtract(request.amount())
+                fromAccount.getBalance()
+                        .subtract(request.amount())
         );
 
         toAccount.setBalance(
-                toAccount.getBalance().add(request.amount())
+                toAccount.getBalance()
+                        .add(request.amount())
         );
 
         accountRepository.save(fromAccount);
@@ -178,11 +326,19 @@ public class TransactionService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        Transaction savedTransaction = transactionRepository.save(transaction);
+        Transaction savedTransaction =
+                transactionRepository.save(transaction);
+
+        log.info(
+                "Transfer completed: transactionId={}, fromAccount={}, toAccount={}, amount={}",
+                savedTransaction.getId(),
+                maskAccountNumber(fromAccount.getAccountNumber()),
+                maskAccountNumber(toAccount.getAccountNumber()),
+                request.amount()
+        );
 
         return toResponse(savedTransaction);
     }
-
 
     public PagedResponse<TransactionResponse> getAccountTransactions(
             String accountNumber,
@@ -192,20 +348,45 @@ public class TransactionService {
             String sortDirection,
             Authentication authentication
     ) {
+        log.debug(
+                "Transaction history requested: account={}, page={}, size={}, type={}, direction={}, user={}",
+                maskAccountNumber(accountNumber),
+                page,
+                size,
+                type,
+                sortDirection,
+                authentication.getName()
+        );
+
         validatePagination(page, size);
 
-        Account account = accountRepository.findByAccountNumber(accountNumber)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Account not found")
-                );
+        Account account = accountRepository
+                .findByAccountNumber(accountNumber)
+                .orElseThrow(() -> {
+                    log.warn(
+                            "Transaction history rejected because account was not found: account={}",
+                            maskAccountNumber(accountNumber)
+                    );
 
-        if (!account.getUser().getEmail().equals(authentication.getName())) {
+                    return new ResourceNotFoundException(
+                            "Account not found"
+                    );
+                });
+
+        if (!isAccountOwner(account, authentication)) {
+            log.warn(
+                    "Unauthorized transaction history access attempt: account={}, authenticatedUser={}",
+                    maskAccountNumber(account.getAccountNumber()),
+                    authentication.getName()
+            );
+
             throw new ForbiddenException(
                     "You are not allowed to access this account"
             );
         }
 
-        Sort.Direction direction = parseSortDirection(sortDirection);
+        Sort.Direction direction =
+                parseSortDirection(sortDirection);
 
         Pageable pageable = PageRequest.of(
                 page,
@@ -239,6 +420,15 @@ public class TransactionService {
         return PagedResponse.from(responsePage);
     }
 
+    private boolean isAccountOwner(
+            Account account,
+            Authentication authentication
+    ) {
+        return account.getUser()
+                .getEmail()
+                .equals(authentication.getName());
+    }
+
     private void validatePagination(int page, int size) {
         if (page < 0) {
             throw new BadRequestException(
@@ -254,12 +444,15 @@ public class TransactionService {
 
         if (size > MAX_PAGE_SIZE) {
             throw new BadRequestException(
-                    "Page size must not be greater than " + MAX_PAGE_SIZE
+                    "Page size must not be greater than "
+                            + MAX_PAGE_SIZE
             );
         }
     }
 
-    private Sort.Direction parseSortDirection(String sortDirection) {
+    private Sort.Direction parseSortDirection(
+            String sortDirection
+    ) {
         if (sortDirection == null || sortDirection.isBlank()) {
             return Sort.Direction.DESC;
         }
@@ -271,5 +464,38 @@ public class TransactionService {
                     "Sort direction must be ASC or DESC"
             );
         }
+    }
+
+    // TODO: Replace manual mapping with MapStruct later.
+    private TransactionResponse toResponse(
+            Transaction transaction
+    ) {
+        return new TransactionResponse(
+                transaction.getId(),
+                transaction.getFromAccount() == null
+                        ? null
+                        : transaction.getFromAccount()
+                        .getAccountNumber(),
+                transaction.getToAccount() == null
+                        ? null
+                        : transaction.getToAccount()
+                        .getAccountNumber(),
+                transaction.getAmount(),
+                transaction.getType(),
+                transaction.getStatus(),
+                transaction.getDescription(),
+                transaction.getCreatedAt()
+        );
+    }
+
+    private String maskAccountNumber(String accountNumber) {
+        if (accountNumber == null || accountNumber.length() < 4) {
+            return "****";
+        }
+
+        return "*".repeat(accountNumber.length() - 4)
+                + accountNumber.substring(
+                accountNumber.length() - 4
+        );
     }
 }
