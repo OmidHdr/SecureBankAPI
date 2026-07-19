@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -111,6 +112,25 @@ public class GlobalExceptionHandler {
                 "Request validation failed",
                 request.getRequestURI(),
                 validationErrors
+        );
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiError> handleOptimisticLockingFailure(
+            ObjectOptimisticLockingFailureException exception,
+            HttpServletRequest request
+    ) {
+        log.warn(
+                "Concurrent account update detected: method={}, path={}",
+                request.getMethod(),
+                request.getRequestURI()
+        );
+
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                "The account was modified by another transaction. Please try again",
+                request.getRequestURI(),
+                null
         );
     }
 

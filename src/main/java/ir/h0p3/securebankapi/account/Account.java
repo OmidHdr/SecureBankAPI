@@ -20,6 +20,10 @@ public class Account {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Column(name = "account_number", nullable = false, unique = true, length = 30)
     private String accountNumber;
 
