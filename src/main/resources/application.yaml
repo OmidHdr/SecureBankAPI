@@ -1,6 +1,7 @@
 spring:
   config:
     import: optional:file:.env[.properties]
+
   application:
     name: SecureBankAPI
 
@@ -16,6 +17,7 @@ spring:
 
   flyway:
     enabled: true
+
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
@@ -32,12 +34,12 @@ springdoc:
 
   show-actuator: false
 
-  logging:
-    level:
-      root: INFO
-      ir.h0p3.securebankapi: INFO
-      org.springframework.security: WARN
-      org.hibernate.SQL: WARN
+logging:
+  level:
+    root: INFO
+    ir.h0p3.securebankapi: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
 
-    file:
-      name: logs/secure-bank-api.log
+  file:
+    name: logs/secure-bank-api.log
