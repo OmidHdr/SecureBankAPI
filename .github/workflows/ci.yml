@@ -1,6 +1,8 @@
 name: SecureBank CI
 
 on:
+  workflow_dispatch:
+
   push:
     branches:
       - master
@@ -15,6 +17,12 @@ jobs:
   test:
     name: Test and Build
     runs-on: ubuntu-latest
+
+    env:
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRATION: ${{ secrets.JWT_EXPIRATION }}
 
     steps:
       - name: Checkout repository
