@@ -21,9 +21,12 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final String TOKEN_TYPE = "Bearer";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthResponse register(RegisterRequest request) {
         log.info("User registration requested for email={}", request.email());
@@ -52,9 +55,7 @@ public class AuthService {
                 savedUser.getEmail()
         );
 
-        String token = jwtService.generateToken(savedUser.getEmail());
-
-        return new AuthResponse(token);
+        return generateAuthResponse(savedUser);
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -87,8 +88,17 @@ public class AuthService {
                 user.getEmail()
         );
 
+        return generateAuthResponse(user);
+    }
+
+    private AuthResponse generateAuthResponse(User user) {
+        String accessToken = jwtService.generateToken(user.getEmail());
+        String refreshToken = refreshTokenService.generateToken(user);
+
         return new AuthResponse(
-                jwtService.generateToken(user.getEmail())
+                accessToken,
+                refreshToken,
+                TOKEN_TYPE
         );
     }
 }
