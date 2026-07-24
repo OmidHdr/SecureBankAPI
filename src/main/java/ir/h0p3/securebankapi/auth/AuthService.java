@@ -2,6 +2,7 @@ package ir.h0p3.securebankapi.auth;
 
 import ir.h0p3.securebankapi.auth.dto.AuthResponse;
 import ir.h0p3.securebankapi.auth.dto.LoginRequest;
+import ir.h0p3.securebankapi.auth.dto.RefreshTokenRequest;
 import ir.h0p3.securebankapi.auth.dto.RegisterRequest;
 import ir.h0p3.securebankapi.auth.security.JwtService;
 import ir.h0p3.securebankapi.common.exception.ConflictException;
@@ -89,6 +90,18 @@ public class AuthService {
         );
 
         return generateAuthResponse(user);
+    }
+
+    public AuthResponse refresh(RefreshTokenRequest request) {
+        RefreshTokenRotation rotation = refreshTokenService.rotateToken(
+                request.refreshToken()
+        );
+
+        return new AuthResponse(
+                jwtService.generateToken(rotation.email()),
+                rotation.refreshToken(),
+                TOKEN_TYPE
+        );
     }
 
     private AuthResponse generateAuthResponse(User user) {
