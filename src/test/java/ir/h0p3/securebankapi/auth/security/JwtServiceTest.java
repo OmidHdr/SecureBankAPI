@@ -20,9 +20,14 @@ class JwtServiceTest {
     private static final String OTHER_SECRET =
             "abcdef0123456789abcdef0123456789";
     private static final long EXPIRATION = 60_000;
+    private static final long REFRESH_EXPIRATION = 120_000;
 
     private final JwtService jwtService =
-            new JwtService(new JwtProperties(SECRET, EXPIRATION));
+            new JwtService(new JwtProperties(
+                    SECRET,
+                    EXPIRATION,
+                    REFRESH_EXPIRATION
+            ));
 
     @Test
     void generateTokenCreatesAValidToken() {
@@ -74,7 +79,11 @@ class JwtServiceTest {
     @Test
     void tokenWithInvalidSignatureIsRejected() {
         JwtService otherJwtService =
-                new JwtService(new JwtProperties(OTHER_SECRET, EXPIRATION));
+                new JwtService(new JwtProperties(
+                        OTHER_SECRET,
+                        EXPIRATION,
+                        REFRESH_EXPIRATION
+                ));
         String token = otherJwtService.generateToken("user@example.com");
 
         assertThatThrownBy(() -> jwtService.validateToken(token))
@@ -85,7 +94,11 @@ class JwtServiceTest {
     void shortSecretFailsFast() {
         assertThatThrownBy(
                 () -> new JwtService(
-                        new JwtProperties("too-short", EXPIRATION)
+                        new JwtProperties(
+                                "too-short",
+                                EXPIRATION,
+                                REFRESH_EXPIRATION
+                        )
                 )
         )
                 .isInstanceOf(IllegalStateException.class)

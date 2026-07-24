@@ -2,6 +2,7 @@ package ir.h0p3.securebankapi.auth;
 
 import ir.h0p3.securebankapi.auth.dto.AuthResponse;
 import ir.h0p3.securebankapi.auth.dto.LoginRequest;
+import ir.h0p3.securebankapi.auth.dto.RefreshTokenRequest;
 import ir.h0p3.securebankapi.auth.dto.RegisterRequest;
 import ir.h0p3.securebankapi.auth.security.JwtService;
 import ir.h0p3.securebankapi.common.exception.ConflictException;
@@ -21,9 +22,12 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final String TOKEN_TYPE = "Bearer";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthResponse register(RegisterRequest request) {
         log.info("User registration requested for email={}", request.email());
@@ -52,9 +56,7 @@ public class AuthService {
                 savedUser.getEmail()
         );
 
-        String token = jwtService.generateToken(savedUser.getEmail());
-
-        return new AuthResponse(token);
+        return generateAuthResponse(savedUser);
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -87,8 +89,29 @@ public class AuthService {
                 user.getEmail()
         );
 
+        return generateAuthResponse(user);
+    }
+
+    public AuthResponse refresh(RefreshTokenRequest request) {
+        RefreshTokenRotation rotation = refreshTokenService.rotateToken(
+                request.refreshToken()
+        );
+
         return new AuthResponse(
-                jwtService.generateToken(user.getEmail())
+                jwtService.generateToken(rotation.email()),
+                rotation.refreshToken(),
+                TOKEN_TYPE
+        );
+    }
+
+    private AuthResponse generateAuthResponse(User user) {
+        String accessToken = jwtService.generateToken(user.getEmail());
+        String refreshToken = refreshTokenService.generateToken(user);
+
+        return new AuthResponse(
+                accessToken,
+                refreshToken,
+                TOKEN_TYPE
         );
     }
 }
