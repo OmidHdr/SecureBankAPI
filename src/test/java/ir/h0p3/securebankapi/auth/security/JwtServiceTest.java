@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,6 +51,30 @@ class JwtServiceTest {
         String token = jwtService.generateToken("user@example.com");
 
         assertThat(jwtService.validateToken(token)).isTrue();
+    }
+
+    @Test
+    void sessionTokensContainSidAndEnforceTokenPurpose() {
+        UUID sessionId = UUID.randomUUID();
+        String accessToken = jwtService.generateAccessToken(
+                "user@example.com",
+                sessionId
+        );
+        String refreshToken = jwtService.generateRefreshToken(
+                "user@example.com",
+                sessionId
+        );
+
+        assertThat(jwtService.validateAccessToken(accessToken).sessionId())
+                .isEqualTo(sessionId);
+        assertThat(jwtService.validateRefreshToken(refreshToken).sessionId())
+                .isEqualTo(sessionId);
+        assertThatThrownBy(
+                () -> jwtService.validateRefreshToken(accessToken)
+        ).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                () -> jwtService.validateAccessToken(refreshToken)
+        ).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
@@ -40,4 +41,12 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             WHERE id IN (SELECT id FROM token_chain)
             """, nativeQuery = true)
     int revokeTokenChain(@Param("tokenId") Long tokenId);
+
+    @Modifying
+    @Query("""
+            UPDATE RefreshToken refreshToken
+            SET refreshToken.revoked = true
+            WHERE refreshToken.session.id = :sessionId
+            """)
+    int revokeAllBySessionId(@Param("sessionId") UUID sessionId);
 }

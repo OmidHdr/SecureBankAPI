@@ -1,32 +1,38 @@
 package ir.h0p3.securebankapi.auth;
 
 import ir.h0p3.securebankapi.auth.security.JwtProperties;
+import ir.h0p3.securebankapi.auth.security.JwtIdentity;
+import ir.h0p3.securebankapi.auth.security.JwtService;
 import ir.h0p3.securebankapi.common.exception.UnauthorizedException;
 import ir.h0p3.securebankapi.user.User;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Base64;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
-    private static final int TOKEN_LENGTH_BYTES = 64;
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final int MAXIMUM_TOKEN_LENGTH = 512;
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProperties jwtProperties;
+    private final JwtService jwtService;
+    private final SessionService sessionService;
 
     @Transactional
-    public String generateToken(User user) {
-        return createToken(user, LocalDateTime.now()).getToken();
+    public String generateToken(User user, Session session) {
+        return createToken(
+                user,
+                session,
+                LocalDateTime.now()
+        ).getToken();
     }
 
     @Transactional(noRollbackFor = UnauthorizedException.class)
@@ -56,8 +62,18 @@ public class RefreshTokenService {
             throw new UnauthorizedException("Refresh token has expired");
         }
 
+        JwtIdentity identity = validateRefreshToken(token);
+        validateTokenOwnership(currentToken, identity);
+        Session session = sessionService.requireActiveSessionForUpdate(
+                identity.sessionId(),
+                identity.email(),
+                now
+        );
+        session.setLastActivityAt(now);
+
         RefreshToken replacementToken = createToken(
                 currentToken.getUser(),
+                session,
                 now
         );
 
@@ -67,18 +83,68 @@ public class RefreshTokenService {
 
         return new RefreshTokenRotation(
                 replacementToken.getToken(),
-                replacementToken.getUser().getEmail()
+                identity.email(),
+                identity.sessionId()
         );
     }
 
-    private RefreshToken createToken(User user, LocalDateTime now) {
+    @Transactional(noRollbackFor = UnauthorizedException.class)
+    public void revokeSession(String token) {
+        validateTokenValue(token);
+
+        RefreshToken currentToken = refreshTokenRepository
+                .findByTokenForUpdate(token)
+                .orElseThrow(() -> new UnauthorizedException(
+                        "Invalid refresh token"
+                ));
+
+        if (Boolean.TRUE.equals(currentToken.getRevoked())) {
+            refreshTokenRepository.revokeTokenChain(currentToken.getId());
+            throw new UnauthorizedException("Invalid refresh token");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (!currentToken.getExpiresAt().isAfter(now)) {
+            currentToken.setRevoked(true);
+            throw new UnauthorizedException("Refresh token has expired");
+        }
+
+        JwtIdentity identity = validateRefreshToken(token);
+        validateTokenOwnership(currentToken, identity);
+        Session session = sessionService.requireActiveSessionForUpdate(
+                identity.sessionId(),
+                identity.email(),
+                now
+        );
+
+        session.setRevoked(true);
+        session.setLastActivityAt(now);
+        refreshTokenRepository.revokeAllBySessionId(session.getId());
+    }
+
+    private RefreshToken createToken(
+            User user,
+            Session session,
+            LocalDateTime now
+    ) {
+        LocalDateTime refreshTokenExpiresAt = now.plus(
+                Duration.ofMillis(jwtProperties.refreshExpiration())
+        );
+
+        if (refreshTokenExpiresAt.isAfter(session.getExpiresAt())) {
+            refreshTokenExpiresAt = session.getExpiresAt();
+        }
+
         RefreshToken refreshToken = RefreshToken.builder()
-                .token(generateTokenValue())
+                .token(jwtService.generateRefreshToken(
+                        user.getEmail(),
+                        session.getId()
+                ))
                 .user(user)
+                .session(session)
                 .issuedAt(now)
-                .expiresAt(now.plus(Duration.ofMillis(
-                        jwtProperties.refreshExpiration()
-                )))
+                .expiresAt(refreshTokenExpiresAt)
                 .revoked(false)
                 .createdAt(now)
                 .build();
@@ -88,27 +154,30 @@ public class RefreshTokenService {
         return refreshToken;
     }
 
-    private String generateTokenValue() {
-        byte[] tokenBytes = new byte[TOKEN_LENGTH_BYTES];
-        SECURE_RANDOM.nextBytes(tokenBytes);
-
-        return Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(tokenBytes);
-    }
-
     private void validateTokenValue(String token) {
-        if (token == null || token.isBlank()) {
+        if (token == null
+                || token.isBlank()
+                || token.length() > MAXIMUM_TOKEN_LENGTH) {
             throw new UnauthorizedException("Invalid refresh token");
         }
+    }
 
+    private JwtIdentity validateRefreshToken(String token) {
         try {
-            byte[] decodedToken = Base64.getUrlDecoder().decode(token);
+            return jwtService.validateRefreshToken(token);
+        } catch (JwtException | IllegalArgumentException exception) {
+            throw new UnauthorizedException("Invalid refresh token");
+        }
+    }
 
-            if (decodedToken.length != TOKEN_LENGTH_BYTES) {
-                throw new UnauthorizedException("Invalid refresh token");
-            }
-        } catch (IllegalArgumentException exception) {
+    private void validateTokenOwnership(
+            RefreshToken refreshToken,
+            JwtIdentity identity
+    ) {
+        if (!refreshToken.getSession().getId()
+                .equals(identity.sessionId())
+                || !refreshToken.getUser().getEmail()
+                .equals(identity.email())) {
             throw new UnauthorizedException("Invalid refresh token");
         }
     }

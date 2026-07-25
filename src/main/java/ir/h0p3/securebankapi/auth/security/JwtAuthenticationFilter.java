@@ -1,5 +1,7 @@
 package ir.h0p3.securebankapi.auth.security;
 
+import ir.h0p3.securebankapi.auth.SessionService;
+import ir.h0p3.securebankapi.common.exception.UnauthorizedException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -25,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final SessionService sessionService;
 
     @Override
     protected void doFilterInternal(
@@ -43,13 +46,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         try {
-            String email = jwtService.extractUsername(token);
+            JwtIdentity identity = jwtService.validateAccessToken(token);
 
-            if (email != null
-                    && SecurityContextHolder.getContext().getAuthentication() == null
-                    && jwtService.validateToken(token)) {
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                sessionService.validateAndTouch(
+                        identity.sessionId(),
+                        identity.email()
+                );
                 UserDetails userDetails =
-                        userDetailsService.loadUserByUsername(email);
+                        userDetailsService.loadUserByUsername(
+                                identity.email()
+                        );
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 userDetails,
@@ -63,7 +70,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-        } catch (JwtException | IllegalArgumentException exception) {
+        } catch (
+                JwtException |
+                IllegalArgumentException |
+                UnauthorizedException exception
+        ) {
             SecurityContextHolder.clearContext();
             log.warn(
                     "JWT authentication failed: method={}, path={}, reason={}",

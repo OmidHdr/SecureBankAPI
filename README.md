@@ -21,6 +21,10 @@ and continuous integration with GitHub Actions.
 - User registration
 - User login
 - JWT-based authentication
+- Session-bound access and refresh tokens
+- Refresh token rotation and replay detection
+- Immediate per-session logout
+- Independent multi-device sessions
 - Secure password hashing
 - JWT expiration validation
 - Invalid and expired token handling
@@ -132,6 +136,7 @@ DB_PASSWORD=change-this-password
 
 JWT_SECRET=replace-this-with-a-secure-secret-key-at-least-32-bytes
 JWT_EXPIRATION=86400000
+JWT_REFRESH_EXPIRATION=604800000
 ```
 
 Do not commit the `.env` file.
@@ -218,6 +223,35 @@ Current test coverage includes JWT behavior such as:
 - Malformed token rejection
 - Invalid signature rejection
 - JWT configuration validation
+- Session creation and validation
+- Refresh token rotation
+- Logout invalidation
+- Multi-device session isolation
+
+## Authentication Flow
+
+Each registration or login creates an independent authenticated session for
+that device or browser. Both returned JWTs contain the session identifier in
+the `sid` claim.
+
+```text
+Login
+  → create session
+  → issue access token + refresh token
+
+Refresh
+  → validate refresh token and session
+  → rotate refresh token
+  → keep the same session
+
+Logout
+  → revoke the current session
+  → revoke all refresh tokens for that session
+```
+
+Protected requests validate both the access-token signature and its session.
+Logging out therefore invalidates that session's access token immediately.
+Other sessions for the same user remain active.
 
 ## Continuous Integration
 
@@ -253,6 +287,8 @@ Current migrations include:
 - Initial database schema
 - Optimistic locking version column
 - Query optimization indexes
+- Refresh token persistence
+- Authenticated sessions
 
 ## Security
 
@@ -263,6 +299,9 @@ The project currently includes:
 - HS256 token signing
 - Minimum JWT secret validation
 - Token expiration validation
+- Session validation on every protected request
+- Refresh token rotation and replay protection
+- Immediate, session-scoped token revocation
 - Centralized authentication failure responses
 - Stateless Spring Security configuration
 - Non-root Docker runtime user
@@ -273,8 +312,8 @@ Production secrets must never be committed to the repository.
 
 Planned features:
 
-- [ ] Refresh token support
-- [ ] Logout and token revocation
+- [x] Refresh token support
+- [x] Logout and token revocation
 - [ ] Password change
 - [ ] Email verification
 - [ ] Login attempt limiter
