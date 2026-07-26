@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -28,7 +29,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final SessionService sessionService;
 
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         log.info("User registration requested for email={}", request.email());
 
@@ -59,6 +62,7 @@ public class AuthService {
         return generateAuthResponse(savedUser);
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         log.info("Login requested for email={}", request.email());
 
@@ -98,15 +102,29 @@ public class AuthService {
         );
 
         return new AuthResponse(
-                jwtService.generateToken(rotation.email()),
+                jwtService.generateAccessToken(
+                        rotation.email(),
+                        rotation.sessionId()
+                ),
                 rotation.refreshToken(),
                 TOKEN_TYPE
         );
     }
 
+    public void logout(RefreshTokenRequest request) {
+        refreshTokenService.revokeSession(request.refreshToken());
+    }
+
     private AuthResponse generateAuthResponse(User user) {
-        String accessToken = jwtService.generateToken(user.getEmail());
-        String refreshToken = refreshTokenService.generateToken(user);
+        Session session = sessionService.createSession(user);
+        String accessToken = jwtService.generateAccessToken(
+                user.getEmail(),
+                session.getId()
+        );
+        String refreshToken = refreshTokenService.generateToken(
+                user,
+                session
+        );
 
         return new AuthResponse(
                 accessToken,
