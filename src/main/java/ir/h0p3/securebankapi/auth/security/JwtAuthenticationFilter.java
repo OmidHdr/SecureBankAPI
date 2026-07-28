@@ -80,10 +80,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     "JWT authentication failed: method={}, path={}, reason={}",
                     request.getMethod(),
                     request.getRequestURI(),
-                    exception.getClass().getSimpleName(),
-                    exception
+                    exception.getClass().getSimpleName()
             );
-            authenticationEntryPoint.writeUnauthorizedResponse(response);
+            authenticationEntryPoint.writeUnauthorizedResponse(request, response);
             return;
         }
 

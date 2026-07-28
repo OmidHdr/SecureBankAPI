@@ -5,6 +5,7 @@ import ir.h0p3.securebankapi.auth.dto.LoginRequest;
 import ir.h0p3.securebankapi.auth.dto.RefreshTokenRequest;
 import ir.h0p3.securebankapi.auth.dto.RegisterRequest;
 import ir.h0p3.securebankapi.auth.security.JwtService;
+import ir.h0p3.securebankapi.auth.security.AuthenticationMessages;
 import ir.h0p3.securebankapi.common.exception.ConflictException;
 import ir.h0p3.securebankapi.user.User;
 import ir.h0p3.securebankapi.user.UserRepository;
@@ -71,7 +72,7 @@ public class AuthService {
                     log.warn("Login failed for unknown email={}", request.email());
 
                     return new BadCredentialsException(
-                            "Invalid email or password"
+                            AuthenticationMessages.INVALID_CREDENTIALS
                     );
                 });
 
@@ -83,7 +84,7 @@ public class AuthService {
                     request.email());
 
             throw new BadCredentialsException(
-                    "Invalid email or password"
+                    AuthenticationMessages.INVALID_CREDENTIALS
             );
         }
 

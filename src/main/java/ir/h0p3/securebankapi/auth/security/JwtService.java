@@ -14,7 +14,7 @@ import java.util.UUID;
 public class JwtService {
 
     private static final int MINIMUM_HS256_KEY_LENGTH_BYTES = 32;
-    private static final String SESSION_ID_CLAIM = "sid";
+    public static final String SESSION_ID_CLAIM = "sid";
     private static final String TOKEN_TYPE_CLAIM = "token_type";
     private static final String ACCESS_TOKEN_TYPE = "access";
     private static final String REFRESH_TOKEN_TYPE = "refresh";

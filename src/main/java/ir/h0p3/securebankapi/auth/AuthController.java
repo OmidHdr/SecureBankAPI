@@ -5,8 +5,13 @@ import ir.h0p3.securebankapi.auth.dto.LoginRequest;
 import ir.h0p3.securebankapi.auth.dto.RefreshTokenRequest;
 import ir.h0p3.securebankapi.auth.dto.RegisterRequest;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import ir.h0p3.securebankapi.common.response.ApiError;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,6 +22,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
         name = "Authentication",
         description = "User registration and authentication endpoints"
 )
+@SecurityRequirements
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -26,8 +32,16 @@ public class AuthController {
 
     @Operation(
             summary = "Register a user",
-            description = "Creates a user and an authenticated session."
+            description = "Creates a user, starts an authenticated session, and returns a token pair."
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "User registered",
+                    content = @Content(schema = @Schema(implementation = AuthResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Request validation failed",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409", description = "Email already exists",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
@@ -41,7 +55,15 @@ public class AuthController {
                     session-bound access and refresh tokens.
                     """
     )
-    @ApiResponse(responseCode = "401", description = "Invalid credentials")
+    @ApiResponse(responseCode = "401", description = "Invalid credentials",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "200", description = "New device session created",
+            content = @Content(schema = @Schema(implementation = AuthResponse.class),
+                    examples = @ExampleObject(value = """
+                            {"accessToken":"eyJ...example","refreshToken":"eyJ...example","tokenType":"Bearer"}
+                            """)))
+    @ApiResponse(responseCode = "400", description = "Request validation failed",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
@@ -51,14 +73,20 @@ public class AuthController {
             summary = "Refresh authentication tokens",
             description = """
                     Rotates the refresh token while retaining the same \
-                    authenticated session.
+                    authenticated session. The previous refresh token is \
+                    invalidated; attempting to reuse it is rejected and \
+                    triggers the configured replay protection.
                     """
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Tokens rotated"),
+            @ApiResponse(responseCode = "200", description = "Tokens rotated",
+                    content = @Content(schema = @Schema(implementation = AuthResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Request validation failed",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(
                     responseCode = "401",
-                    description = "Invalid, expired, revoked, or reused token"
+                    description = "Invalid, expired, revoked, or reused token",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))
             )
     })
     @PostMapping("/refresh")
@@ -73,14 +101,18 @@ public class AuthController {
             description = """
                     Revokes the session represented by the refresh token and \
                     all refresh tokens belonging to that session. Other \
-                    sessions remain active.
+                    sessions remain active. Access and refresh tokens from \
+                    this session immediately become invalid.
                     """
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Session revoked"),
+            @ApiResponse(responseCode = "400", description = "Request validation failed",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(
                     responseCode = "401",
-                    description = "Invalid or revoked refresh token"
+                    description = "Invalid or revoked refresh token",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))
             )
     })
     @PostMapping("/logout")

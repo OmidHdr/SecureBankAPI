@@ -232,26 +232,32 @@ Current test coverage includes JWT behavior such as:
 
 Each registration or login creates an independent authenticated session for
 that device or browser. Both returned JWTs contain the session identifier in
-the `sid` claim.
+the `sid` claim. The server validates that identifier against the
+`auth_sessions` table on every authenticated request; possession of a signed
+token alone is not enough when its session is revoked or expired.
 
 ```text
 Login
-  → create session
-  → issue access token + refresh token
+  → create auth session
+  → issue access token and refresh token
 
 Refresh
-  → validate refresh token and session
+  → validate active session
   → rotate refresh token
-  → keep the same session
+  → issue a new token pair in the same session
 
 Logout
   → revoke the current session
-  → revoke all refresh tokens for that session
+  → revoke related refresh tokens
+  → previous access and refresh tokens return 401
 ```
 
-Protected requests validate both the access-token signature and its session.
-Logging out therefore invalidates that session's access token immediately.
-Other sessions for the same user remain active.
+Each refresh operation invalidates the refresh token it consumes and links it
+to its replacement. Reusing a rotated token is rejected as replay and revokes
+the existing replacement chain. Logout is immediate and session-scoped:
+protected requests with that session's old access token and refresh attempts
+with its old refresh token return `401 Unauthorized`. Other device sessions
+for the same user remain active and can continue accessing and refreshing.
 
 ## Continuous Integration
 
@@ -321,8 +327,8 @@ Planned features:
 - [ ] Scheduled transfers
 - [ ] Account freeze
 - [ ] MapStruct integration
-- [ ] Extended integration tests
-- [ ] Improved API documentation
+- [x] Extended authentication integration tests
+- [x] Improved authentication API documentation
 - [ ] Code coverage reporting
 - [ ] Docker image publishing
 - [ ] Automated deployment

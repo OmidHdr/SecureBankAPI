@@ -10,6 +10,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -123,6 +124,47 @@ class RefreshTokenServiceTest {
         )
                 .isInstanceOf(UnauthorizedException.class)
                 .hasMessage("Invalid refresh token");
+    }
+
+    @Test
+    void refreshTokenSessionMismatchIsRejected() {
+        TestContext context = createContext();
+        String token = context.jwtService.generateRefreshToken(
+                context.user.getEmail(),
+                UUID.randomUUID()
+        );
+        saveToken(context, token);
+
+        assertThatThrownBy(() -> context.refreshTokenService.rotateToken(token))
+                .isInstanceOf(UnauthorizedException.class)
+                .hasMessage("Invalid refresh token");
+    }
+
+    @Test
+    void refreshTokenOwnershipMismatchIsRejected() {
+        TestContext context = createContext();
+        String token = context.jwtService.generateRefreshToken(
+                "other@example.com",
+                context.session.getId()
+        );
+        saveToken(context, token);
+
+        assertThatThrownBy(() -> context.refreshTokenService.rotateToken(token))
+                .isInstanceOf(UnauthorizedException.class)
+                .hasMessage("Invalid refresh token");
+    }
+
+    private void saveToken(TestContext context, String token) {
+        LocalDateTime now = LocalDateTime.now();
+        context.refreshTokenRepository.save(RefreshToken.builder()
+                .token(token)
+                .user(context.user)
+                .session(context.session)
+                .issuedAt(now)
+                .expiresAt(now.plusMinutes(1))
+                .revoked(false)
+                .createdAt(now)
+                .build());
     }
 
     private TestContext createContext() {

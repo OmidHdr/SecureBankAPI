@@ -78,6 +78,34 @@ class JwtServiceTest {
     }
 
     @Test
+    void accessTokenWithoutSidIsRejected() {
+        String token = jwtService.generateToken("user@example.com");
+
+        assertThatThrownBy(() -> jwtService.validateAccessToken(token))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("JWT session id is missing");
+    }
+
+    @Test
+    void accessTokenWithInvalidSidFormatIsRejected() {
+        Date now = new Date();
+        String token = Jwts.builder()
+                .subject("user@example.com")
+                .claim(JwtService.SESSION_ID_CLAIM, "not-a-uuid")
+                .claim("token_type", "access")
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + EXPIRATION))
+                .signWith(
+                        Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8)),
+                        Jwts.SIG.HS256
+                )
+                .compact();
+
+        assertThatThrownBy(() -> jwtService.validateAccessToken(token))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void expiredTokenIsRejected() {
         String token = Jwts.builder()
                 .subject("user@example.com")

@@ -1,5 +1,6 @@
 package ir.h0p3.securebankapi.common.exception;
 
+import ir.h0p3.securebankapi.auth.security.AuthenticationMessages;
 import ir.h0p3.securebankapi.common.response.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -79,7 +80,7 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.UNAUTHORIZED,
-                "Invalid email or password",
+                AuthenticationMessages.INVALID_CREDENTIALS,
                 request.getRequestURI(),
                 null
         );

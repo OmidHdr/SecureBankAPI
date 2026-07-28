@@ -3,6 +3,7 @@ package ir.h0p3.securebankapi.auth;
 import ir.h0p3.securebankapi.auth.security.JwtProperties;
 import ir.h0p3.securebankapi.auth.security.JwtIdentity;
 import ir.h0p3.securebankapi.auth.security.JwtService;
+import ir.h0p3.securebankapi.auth.security.AuthenticationMessages;
 import ir.h0p3.securebankapi.common.exception.UnauthorizedException;
 import ir.h0p3.securebankapi.user.User;
 import io.jsonwebtoken.JwtException;
@@ -42,7 +43,7 @@ public class RefreshTokenService {
         RefreshToken currentToken = refreshTokenRepository
                 .findByTokenForUpdate(token)
                 .orElseThrow(() -> new UnauthorizedException(
-                        "Invalid refresh token"
+                        AuthenticationMessages.INVALID_REFRESH_TOKEN
                 ));
 
         if (Boolean.TRUE.equals(currentToken.getRevoked())) {
@@ -52,7 +53,7 @@ public class RefreshTokenService {
                     currentToken.getId(),
                     currentToken.getUser().getId()
             );
-            throw new UnauthorizedException("Invalid refresh token");
+            throw new UnauthorizedException(AuthenticationMessages.INVALID_REFRESH_TOKEN);
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -95,12 +96,12 @@ public class RefreshTokenService {
         RefreshToken currentToken = refreshTokenRepository
                 .findByTokenForUpdate(token)
                 .orElseThrow(() -> new UnauthorizedException(
-                        "Invalid refresh token"
+                        AuthenticationMessages.INVALID_REFRESH_TOKEN
                 ));
 
         if (Boolean.TRUE.equals(currentToken.getRevoked())) {
             refreshTokenRepository.revokeTokenChain(currentToken.getId());
-            throw new UnauthorizedException("Invalid refresh token");
+            throw new UnauthorizedException(AuthenticationMessages.INVALID_REFRESH_TOKEN);
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -158,7 +159,7 @@ public class RefreshTokenService {
         if (token == null
                 || token.isBlank()
                 || token.length() > MAXIMUM_TOKEN_LENGTH) {
-            throw new UnauthorizedException("Invalid refresh token");
+            throw new UnauthorizedException(AuthenticationMessages.INVALID_REFRESH_TOKEN);
         }
     }
 
@@ -166,7 +167,7 @@ public class RefreshTokenService {
         try {
             return jwtService.validateRefreshToken(token);
         } catch (JwtException | IllegalArgumentException exception) {
-            throw new UnauthorizedException("Invalid refresh token");
+            throw new UnauthorizedException(AuthenticationMessages.INVALID_REFRESH_TOKEN);
         }
     }
 
@@ -178,7 +179,7 @@ public class RefreshTokenService {
                 .equals(identity.sessionId())
                 || !refreshToken.getUser().getEmail()
                 .equals(identity.email())) {
-            throw new UnauthorizedException("Invalid refresh token");
+            throw new UnauthorizedException(AuthenticationMessages.INVALID_REFRESH_TOKEN);
         }
     }
 }
