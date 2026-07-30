@@ -30,6 +30,7 @@ class AuthServiceTest {
     private JwtService jwtService;
     private RefreshTokenService refreshTokenService;
     private SessionService sessionService;
+    private LoginAttemptService loginAttemptService;
     private AuthService service;
 
     @BeforeEach
@@ -39,12 +40,14 @@ class AuthServiceTest {
         jwtService = mock(JwtService.class);
         refreshTokenService = mock(RefreshTokenService.class);
         sessionService = mock(SessionService.class);
+        loginAttemptService = mock(LoginAttemptService.class);
         service = new AuthService(
                 userRepository,
                 passwordEncoder,
                 jwtService,
                 refreshTokenService,
-                sessionService
+                sessionService,
+                loginAttemptService
         );
     }
 
@@ -67,7 +70,7 @@ class AuthServiceTest {
         LoginRequest request = new LoginRequest(
                 "user@example.com", "Password123!"
         );
-        when(userRepository.findByEmail(request.email()))
+        when(userRepository.findByEmailForUpdate(request.email()))
                 .thenReturn(Optional.empty());
         assertInvalidCredentials(request);
 
@@ -75,11 +78,13 @@ class AuthServiceTest {
                 .email(request.email())
                 .passwordHash("encoded")
                 .build();
-        when(userRepository.findByEmail(request.email()))
+        when(userRepository.findByEmailForUpdate(request.email()))
                 .thenReturn(Optional.of(user));
         when(passwordEncoder.matches(request.password(), "encoded"))
                 .thenReturn(false);
         assertInvalidCredentials(request);
+        verify(loginAttemptService).ensureLoginAllowed(user);
+        verify(loginAttemptService).recordFailedAttempt(user);
     }
 
     @Test
@@ -94,7 +99,7 @@ class AuthServiceTest {
                 .build();
         UUID sessionId = UUID.randomUUID();
         Session session = Session.builder().id(sessionId).user(user).build();
-        when(userRepository.findByEmail(request.email()))
+        when(userRepository.findByEmailForUpdate(request.email()))
                 .thenReturn(Optional.of(user));
         when(passwordEncoder.matches(request.password(), "encoded"))
                 .thenReturn(true);
@@ -111,6 +116,8 @@ class AuthServiceTest {
         ));
         verify(sessionService).createSession(user);
         verify(refreshTokenService).generateToken(user, session);
+        verify(loginAttemptService).ensureLoginAllowed(user);
+        verify(loginAttemptService).recordSuccessfulLogin(user);
     }
 
     private void assertInvalidCredentials(LoginRequest request) {

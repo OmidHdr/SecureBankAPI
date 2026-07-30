@@ -52,7 +52,9 @@ public class AuthController {
             summary = "Log in",
             description = """
                     Creates an independent authenticated session and returns \
-                    session-bound access and refresh tokens.
+                    session-bound access and refresh tokens. Five consecutive \
+                    wrong passwords lock the account for 15 minutes. A \
+                    successful login resets the failed-attempt and lock state.
                     """
     )
     @ApiResponse(responseCode = "401", description = "Invalid credentials",
@@ -63,6 +65,9 @@ public class AuthController {
                             {"accessToken":"eyJ...example","refreshToken":"eyJ...example","tokenType":"Bearer"}
                             """)))
     @ApiResponse(responseCode = "400", description = "Request validation failed",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "423",
+            description = "Account locked after five consecutive failed attempts",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {

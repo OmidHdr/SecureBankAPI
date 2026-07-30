@@ -20,6 +20,7 @@ and continuous integration with GitHub Actions.
 
 - User registration
 - User login
+- Persistent login-attempt limiting with a 15-minute account lock
 - JWT-based authentication
 - Session-bound access and refresh tokens
 - Refresh token rotation and replay detection
@@ -227,6 +228,7 @@ Current test coverage includes JWT behavior such as:
 - Refresh token rotation
 - Logout invalidation
 - Multi-device session isolation
+- Login lockout persistence, expiry, and successful-login reset
 
 ## Authentication Flow
 
@@ -238,6 +240,8 @@ token alone is not enough when its session is revoked or expired.
 
 ```text
 Login
+  → enforce persisted account lock
+  → verify password and update failed-attempt state
   → create auth session
   → issue access token and refresh token
 
@@ -258,6 +262,12 @@ the existing replacement chain. Logout is immediate and session-scoped:
 protected requests with that session's old access token and refresh attempts
 with its old refresh token return `401 Unauthorized`. Other device sessions
 for the same user remain active and can continue accessing and refreshing.
+
+Five consecutive wrong passwords lock the user account for 15 minutes and
+return `423 Locked`. The failed-attempt count, lock flag, and lock time are
+persisted in PostgreSQL. A successful login clears that state. After the
+15-minute window expires, the next login attempt clears the old lock before
+checking the supplied password.
 
 ## Continuous Integration
 
@@ -295,6 +305,7 @@ Current migrations include:
 - Query optimization indexes
 - Refresh token persistence
 - Authenticated sessions
+- Login-attempt and timed account-lock state
 
 ## Security
 
@@ -309,6 +320,7 @@ The project currently includes:
 - Refresh token rotation and replay protection
 - Immediate, session-scoped token revocation
 - Centralized authentication failure responses
+- Persistent lockout after five consecutive wrong passwords
 - Stateless Spring Security configuration
 - Non-root Docker runtime user
 
@@ -322,7 +334,7 @@ Planned features:
 - [x] Logout and token revocation
 - [ ] Password change
 - [ ] Email verification
-- [ ] Login attempt limiter
+- [x] Login attempt limiter
 - [ ] Monthly transfer limit
 - [ ] Scheduled transfers
 - [ ] Account freeze

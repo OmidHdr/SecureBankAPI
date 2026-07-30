@@ -86,6 +86,19 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ApiError> handleAccountLocked(
+            AccountLockedException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.LOCKED,
+                exception.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ApiError> handleUnauthorized(
             UnauthorizedException exception,
