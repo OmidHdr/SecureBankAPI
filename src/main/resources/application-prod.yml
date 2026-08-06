@@ -1,0 +1,43 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  devtools:
+    add-properties: false
+    restart:
+      enabled: false
+    livereload:
+      enabled: false
+  jpa:
+    show-sql: false
+
+jwt:
+  secret: ${JWT_SECRET}
+
+app:
+  cors:
+    production: true
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    ir.h0p3.securebankapi: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN

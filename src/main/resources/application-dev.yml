@@ -1,0 +1,21 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+  devtools:
+    restart:
+      enabled: true
+    livereload:
+      enabled: true
+  jpa:
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+logging:
+  level:
+    ir.h0p3.securebankapi: ${APP_LOG_LEVEL:DEBUG}

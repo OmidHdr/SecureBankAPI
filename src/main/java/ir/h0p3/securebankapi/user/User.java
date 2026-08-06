@@ -34,6 +34,17 @@ public class User {
     @Column(nullable = false)
     private Boolean enabled;
 
+    @Builder.Default
+    @Column(name = "failed_attempts", nullable = false)
+    private int failedAttempts = 0;
+
+    @Builder.Default
+    @Column(name = "account_locked", nullable = false)
+    private boolean accountLocked = false;
+
+    @Column(name = "lock_time")
+    private LocalDateTime lockTime;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 }

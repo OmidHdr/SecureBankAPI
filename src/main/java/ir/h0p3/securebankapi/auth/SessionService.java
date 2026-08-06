@@ -1,6 +1,7 @@
 package ir.h0p3.securebankapi.auth;
 
 import ir.h0p3.securebankapi.auth.security.JwtProperties;
+import ir.h0p3.securebankapi.auth.security.AuthenticationMessages;
 import ir.h0p3.securebankapi.common.exception.UnauthorizedException;
 import ir.h0p3.securebankapi.user.User;
 import lombok.RequiredArgsConstructor;
@@ -54,14 +55,14 @@ public class SessionService {
         Session session = sessionRepository
                 .findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new UnauthorizedException(
-                        "Invalid or expired session"
+                        AuthenticationMessages.INVALID_SESSION
                 ));
 
         if (Boolean.TRUE.equals(session.getRevoked())
                 || !session.getExpiresAt().isAfter(now)
                 || !session.getUser().getEmail().equals(email)) {
             throw new UnauthorizedException(
-                    "Invalid or expired session"
+                    AuthenticationMessages.INVALID_SESSION
             );
         }
 

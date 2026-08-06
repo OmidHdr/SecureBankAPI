@@ -5,6 +5,8 @@ import ir.h0p3.securebankapi.auth.dto.LoginRequest;
 import ir.h0p3.securebankapi.auth.dto.RefreshTokenRequest;
 import ir.h0p3.securebankapi.auth.dto.RegisterRequest;
 import ir.h0p3.securebankapi.auth.security.JwtService;
+import ir.h0p3.securebankapi.auth.security.AuthenticationMessages;
+import ir.h0p3.securebankapi.common.exception.AccountLockedException;
 import ir.h0p3.securebankapi.common.exception.ConflictException;
 import ir.h0p3.securebankapi.user.User;
 import ir.h0p3.securebankapi.user.UserRepository;
@@ -30,6 +32,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final SessionService sessionService;
+    private final LoginAttemptService loginAttemptService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -62,30 +65,39 @@ public class AuthService {
         return generateAuthResponse(savedUser);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = {
+            BadCredentialsException.class,
+            AccountLockedException.class
+    })
     public AuthResponse login(LoginRequest request) {
         log.info("Login requested for email={}", request.email());
 
-        User user = userRepository.findByEmail(request.email())
+        User user = userRepository.findByEmailForUpdate(request.email())
                 .orElseThrow(() -> {
                     log.warn("Login failed for unknown email={}", request.email());
 
                     return new BadCredentialsException(
-                            "Invalid email or password"
+                            AuthenticationMessages.INVALID_CREDENTIALS
                     );
                 });
+
+        loginAttemptService.ensureLoginAllowed(user);
 
         if (!passwordEncoder.matches(
                 request.password(),
                 user.getPasswordHash()
         )) {
+            loginAttemptService.recordFailedAttempt(user);
+
             log.warn("Login failed because password was invalid: email={}",
                     request.email());
 
             throw new BadCredentialsException(
-                    "Invalid email or password"
+                    AuthenticationMessages.INVALID_CREDENTIALS
             );
         }
+
+        loginAttemptService.recordSuccessfulLogin(user);
 
         log.info(
                 "User logged in successfully: userId={}, email={}",

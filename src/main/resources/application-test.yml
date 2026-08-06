@@ -1,0 +1,26 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+  devtools:
+    add-properties: false
+    restart:
+      enabled: false
+    livereload:
+      enabled: false
+  jpa:
+    show-sql: false
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+jwt:
+  secret: test-only-secret-key-with-at-least-32-bytes
+
+logging:
+  level:
+    ir.h0p3.securebankapi: INFO
+    org.hibernate.SQL: WARN
