@@ -44,3 +44,6 @@ logging:
 
   file:
     name: logs/secure-bank-api.log
+
+server:
+  port: 8081

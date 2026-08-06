@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDateTime;
@@ -41,7 +42,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "jwt.secret=test-secret-key-test-secret-key-test-secret-key",
         "jwt.expiration=86400000",
-        "jwt.refresh-expiration=604800000"
+        "jwt.refresh-expiration=604800000",
+        "rate-limit.login.requests=1000",
+        "rate-limit.register.requests=1000",
+        "rate-limit.refresh.requests=1000",
+        "rate-limit.logout.requests=1000"
 })
 class SessionAuthenticationIntegrationTest {
 
@@ -94,6 +99,7 @@ class SessionAuthenticationIntegrationTest {
     }
 
     @Test
+    @Transactional
     void shouldCreateSessionWhenLoginSucceeds() throws Exception {
         Tokens tokens = login();
         var identity = jwtService.validateAccessToken(

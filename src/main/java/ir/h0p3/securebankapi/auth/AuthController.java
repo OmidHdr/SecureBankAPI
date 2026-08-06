@@ -40,6 +40,8 @@ public class AuthController {
             @ApiResponse(responseCode = "400", description = "Request validation failed",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "409", description = "Email already exists",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "429", description = "IP rate limit exceeded",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/register")
@@ -69,6 +71,8 @@ public class AuthController {
     @ApiResponse(responseCode = "423",
             description = "Account locked after five consecutive failed attempts",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "429", description = "IP rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
@@ -92,7 +96,9 @@ public class AuthController {
                     responseCode = "401",
                     description = "Invalid, expired, revoked, or reused token",
                     content = @Content(schema = @Schema(implementation = ApiError.class))
-            )
+            ),
+            @ApiResponse(responseCode = "429", description = "IP rate limit exceeded",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/refresh")
     public AuthResponse refresh(
@@ -118,7 +124,9 @@ public class AuthController {
                     responseCode = "401",
                     description = "Invalid or revoked refresh token",
                     content = @Content(schema = @Schema(implementation = ApiError.class))
-            )
+            ),
+            @ApiResponse(responseCode = "429", description = "IP rate limit exceeded",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)

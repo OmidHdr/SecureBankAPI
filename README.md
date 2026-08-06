@@ -21,6 +21,7 @@ and continuous integration with GitHub Actions.
 - User registration
 - User login
 - Persistent login-attempt limiting with a 15-minute account lock
+- IP-based authentication endpoint rate limiting
 - JWT-based authentication
 - Session-bound access and refresh tokens
 - Refresh token rotation and replay detection
@@ -138,6 +139,18 @@ DB_PASSWORD=change-this-password
 JWT_SECRET=replace-this-with-a-secure-secret-key-at-least-32-bytes
 JWT_EXPIRATION=86400000
 JWT_REFRESH_EXPIRATION=604800000
+
+RATE_LIMIT_TRUST_FORWARDED_HEADERS=false
+RATE_LIMIT_BUCKET_EXPIRATION=10m
+RATE_LIMIT_MAXIMUM_BUCKETS=10000
+RATE_LIMIT_LOGIN_REQUESTS=10
+RATE_LIMIT_LOGIN_WINDOW=1m
+RATE_LIMIT_REGISTER_REQUESTS=5
+RATE_LIMIT_REGISTER_WINDOW=1m
+RATE_LIMIT_REFRESH_REQUESTS=20
+RATE_LIMIT_REFRESH_WINDOW=1m
+RATE_LIMIT_LOGOUT_REQUESTS=20
+RATE_LIMIT_LOGOUT_WINDOW=1m
 ```
 
 Do not commit the `.env` file.
@@ -269,6 +282,36 @@ persisted in PostgreSQL. A successful login clears that state. After the
 15-minute window expires, the next login attempt clears the old lock before
 checking the supplied password.
 
+## Authentication Rate Limiting
+
+Authentication requests are limited by client IP before JWT parsing,
+password hashing, or database-backed authentication work. The defaults are:
+
+| Endpoint | Default limit |
+| --- | --- |
+| `POST /api/auth/login` | 10 requests per minute |
+| `POST /api/auth/register` | 5 requests per minute |
+| `POST /api/auth/refresh` | 20 requests per minute |
+| `POST /api/auth/logout` | 20 requests per minute |
+
+The `RATE_LIMIT_*_REQUESTS` and `RATE_LIMIT_*_WINDOW` variables configure each
+endpoint. `RATE_LIMIT_BUCKET_EXPIRATION` controls inactive-bucket eviction,
+and `RATE_LIMIT_MAXIMUM_BUCKETS` provides a hard memory bound. A rejected
+request returns `429 Too Many Requests` with the standard JSON error body and
+`Retry-After`, `X-RateLimit-Limit`, and `X-RateLimit-Remaining` headers.
+
+By default, forwarded headers are ignored and the limiter uses the direct
+socket address reported by the servlet container. Set
+`RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` only when the application is behind
+a trusted reverse proxy that removes client-supplied forwarding headers and
+sets `X-Forwarded-For` itself. When enabled, the first valid IP literal in
+`X-Forwarded-For` is used; missing or malformed values fall back to the direct
+remote address.
+
+Buckets are stored in application memory. This is appropriate for the current
+single-instance deployment, but limits are per-instance and are not globally
+coordinated when multiple application replicas are running.
+
 ## Continuous Integration
 
 GitHub Actions automatically runs when code is pushed to `main` or `master`,
@@ -321,6 +364,7 @@ The project currently includes:
 - Immediate, session-scoped token revocation
 - Centralized authentication failure responses
 - Persistent lockout after five consecutive wrong passwords
+- Early IP-based rate limiting for authentication endpoints
 - Stateless Spring Security configuration
 - Non-root Docker runtime user
 
@@ -335,6 +379,7 @@ Planned features:
 - [ ] Password change
 - [ ] Email verification
 - [x] Login attempt limiter
+- [x] Authentication endpoint rate limiting
 - [ ] Monthly transfer limit
 - [ ] Scheduled transfers
 - [ ] Account freeze

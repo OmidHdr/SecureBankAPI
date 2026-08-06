@@ -30,7 +30,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "jwt.secret=test-secret-key-test-secret-key-test-secret-key",
         "jwt.expiration=86400000",
-        "jwt.refresh-expiration=604800000"
+        "jwt.refresh-expiration=604800000",
+        "rate-limit.login.requests=1000"
 })
 class LoginAttemptLimiterIntegrationTest {
 
