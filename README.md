@@ -50,6 +50,8 @@ and continuous integration with GitHub Actions.
 - GitHub Actions CI pipeline
 - Automated test execution
 - Maven dependency caching
+- Separate development, test, and production profiles
+- Restricted Actuator exposure and container health checks
 
 ## Technology Stack
 
@@ -133,12 +135,31 @@ Alternatively, install only:
 Create a `.env` file in the project root:
 
 ```env
+POSTGRES_DB=secure_bank_db
+POSTGRES_USER=securebank
+POSTGRES_PASSWORD=replace-with-a-strong-database-password
+
+DB_URL=jdbc:postgresql://localhost:5432/secure_bank_db
 DB_USERNAME=securebank
-DB_PASSWORD=change-this-password
+DB_PASSWORD=replace-with-a-strong-database-password
+
+APP_PORT=8080
+SPRING_PROFILES_ACTIVE=dev
 
 JWT_SECRET=replace-this-with-a-secure-secret-key-at-least-32-bytes
 JWT_EXPIRATION=86400000
 JWT_REFRESH_EXPIRATION=604800000
+
+LOGIN_LOCKOUT_MAX_FAILED_ATTEMPTS=5
+LOGIN_LOCKOUT_DURATION=15m
+
+CORS_ALLOWED_ORIGINS=http://localhost:3000
+CORS_ALLOWED_METHODS=GET,POST,PUT,PATCH,DELETE,OPTIONS
+CORS_ALLOWED_HEADERS=Authorization,Content-Type,Accept
+CORS_ALLOW_CREDENTIALS=false
+CORS_MAX_AGE=1h
+
+SWAGGER_ENABLED=false
 
 RATE_LIMIT_TRUST_FORWARDED_HEADERS=false
 RATE_LIMIT_BUCKET_EXPIRATION=10m
@@ -154,6 +175,31 @@ RATE_LIMIT_LOGOUT_WINDOW=1m
 ```
 
 Do not commit the `.env` file.
+
+Durations use Spring Boot syntax such as `30s`, `15m`, or `1h`. Comma-separated
+values configure CORS lists. JWT and database values are mandatory.
+
+## Spring Profiles
+
+| Profile | Purpose |
+| --- | --- |
+| `dev` | Default local profile; Swagger enabled, useful application logging, and optional SQL output through `SPRING_JPA_SHOW_SQL` |
+| `test` | Automated tests; Swagger and DevTools disabled, database supplied by Testcontainers |
+| `prod` | Mandatory external database/JWT settings, Swagger disabled by default, and hardened operational defaults |
+
+Shared settings live in `application.yml`; profile files contain only their
+overrides. Run development locally with:
+
+```bash
+SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
+```
+
+Run the packaged application in production mode with externally supplied
+secrets:
+
+```bash
+SPRING_PROFILES_ACTIVE=prod java -jar target/SecureBankAPI-0.0.1-SNAPSHOT.jar
+```
 
 ## Run with Docker
 
@@ -184,27 +230,25 @@ docker compose down
 > Avoid using `docker compose down -v` unless you intentionally want to
 > delete the PostgreSQL data volume.
 
-The API will be available at:
+The application always listens on port `8080` inside the container. `APP_PORT`
+selects the loopback-only host port, so with the default the API is available at:
 
 ```text
 http://localhost:8080
 ```
 
-## Run Locally
+## CORS
 
-Start PostgreSQL and configure the required environment variables.
+CORS is configured globally through the `CORS_*` variables. Origins, methods,
+and headers are explicit; credentials default to disabled. Production startup
+rejects credentialed requests combined with a wildcard origin.
 
-Then run:
+## Actuator Policy
 
-```bash
-./mvnw spring-boot:run
-```
-
-Or:
-
-```bash
-mvn spring-boot:run
-```
+Only `health` and `info` are exposed over HTTP. `/actuator/health` is public so
+Docker can check readiness without credentials, and health details are hidden.
+`/actuator/info` and all other `/actuator/**` requests require valid JWT
+authentication. Environment and database properties are not exposed.
 
 ## Build
 
@@ -367,8 +411,26 @@ The project currently includes:
 - Early IP-based rate limiting for authentication endpoints
 - Stateless Spring Security configuration
 - Non-root Docker runtime user
+- Restrictive, configurable CORS
+- Public minimal health check with protected operational endpoints
+- `nosniff`, frame denial, no-referrer, restrictive Permissions Policy, and no-store headers
+
+No Content Security Policy is applied globally. The API primarily returns JSON,
+and a browser-focused global CSP would provide little value while potentially
+breaking Swagger when it is deliberately enabled for development.
 
 Production secrets must never be committed to the repository.
+
+## Production Checklist
+
+- Activate the `prod` profile.
+- Supply a unique JWT secret of at least 32 bytes and strong database credentials.
+- Configure only required CORS origins; keep credentials disabled unless needed.
+- Keep Swagger disabled unless access is protected externally.
+- Keep `/actuator/health` reachable and do not expose more Actuator endpoints.
+- Trust forwarded headers only behind a proxy that removes spoofed values.
+- Terminate TLS at a trusted reverse proxy or load balancer.
+- Protect persistent database data and application logs.
 
 ## Roadmap
 

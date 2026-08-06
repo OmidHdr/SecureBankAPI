@@ -54,8 +54,9 @@ public class AuthController {
             summary = "Log in",
             description = """
                     Creates an independent authenticated session and returns \
-                    session-bound access and refresh tokens. Five consecutive \
-                    wrong passwords lock the account for 15 minutes. A \
+                    session-bound access and refresh tokens. The configured \
+                    failed-attempt threshold (five by default) locks the account \
+                    for the configured duration (15 minutes by default). A \
                     successful login resets the failed-attempt and lock state.
                     """
     )
@@ -69,7 +70,7 @@ public class AuthController {
     @ApiResponse(responseCode = "400", description = "Request validation failed",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "423",
-            description = "Account locked after five consecutive failed attempts",
+            description = "Account locked after the configured failed-attempt threshold",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "429", description = "IP rate limit exceeded",
             content = @Content(schema = @Schema(implementation = ApiError.class)))

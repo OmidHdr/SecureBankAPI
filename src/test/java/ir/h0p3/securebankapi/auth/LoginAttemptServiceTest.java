@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,8 +18,15 @@ class LoginAttemptServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-07-30T12:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final Duration LOCK_DURATION = Duration.ofMinutes(15);
+    private static final String ACCOUNT_LOCKED_MESSAGE =
+            "Account is temporarily locked. Try again in 15 minutes";
 
-    private final LoginAttemptService service = new LoginAttemptService(CLOCK);
+    private final LoginAttemptService service = new LoginAttemptService(
+            CLOCK,
+            new LoginAttemptProperties(MAX_FAILED_ATTEMPTS, LOCK_DURATION)
+    );
 
     @Test
     void fifthConsecutiveFailureLocksAccount() {
@@ -28,10 +36,10 @@ class LoginAttemptServiceTest {
 
         assertThatThrownBy(() -> service.recordFailedAttempt(user))
                 .isInstanceOf(AccountLockedException.class)
-                .hasMessage(LoginAttemptService.ACCOUNT_LOCKED_MESSAGE);
+                .hasMessage(ACCOUNT_LOCKED_MESSAGE);
 
         assertThat(user.getFailedAttempts())
-                .isEqualTo(LoginAttemptService.MAX_FAILED_ATTEMPTS);
+                .isEqualTo(MAX_FAILED_ATTEMPTS);
         assertThat(user.isAccountLocked()).isTrue();
         assertThat(user.getLockTime())
                 .isEqualTo(LocalDateTime.ofInstant(NOW, ZoneOffset.UTC));
@@ -61,7 +69,7 @@ class LoginAttemptServiceTest {
                 .failedAttempts(5)
                 .accountLocked(true)
                 .lockTime(LocalDateTime.ofInstant(
-                        NOW.minus(LoginAttemptService.LOCK_DURATION),
+                        NOW.minus(LOCK_DURATION),
                         ZoneOffset.UTC
                 ))
                 .build();

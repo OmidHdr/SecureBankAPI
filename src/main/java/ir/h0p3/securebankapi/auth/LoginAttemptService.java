@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Service
@@ -15,12 +14,8 @@ import java.time.LocalDateTime;
 @Slf4j
 public class LoginAttemptService {
 
-    static final int MAX_FAILED_ATTEMPTS = 5;
-    static final Duration LOCK_DURATION = Duration.ofMinutes(15);
-    static final String ACCOUNT_LOCKED_MESSAGE =
-            "Account is temporarily locked. Try again in 15 minutes";
-
     private final Clock clock;
+    private final LoginAttemptProperties properties;
 
     public void ensureLoginAllowed(User user) {
         if (!user.isAccountLocked()) {
@@ -31,29 +26,29 @@ public class LoginAttemptService {
         LocalDateTime lockTime = user.getLockTime();
 
         if (lockTime != null
-                && !now.isBefore(lockTime.plus(LOCK_DURATION))) {
+                && !now.isBefore(lockTime.plus(properties.duration()))) {
             reset(user);
             log.info("Expired login lock cleared: userId={}", user.getId());
             return;
         }
 
         log.warn("Login rejected for locked account: userId={}", user.getId());
-        throw new AccountLockedException(ACCOUNT_LOCKED_MESSAGE);
+        throw new AccountLockedException(accountLockedMessage());
     }
 
     public void recordFailedAttempt(User user) {
         int failedAttempts = user.getFailedAttempts() + 1;
         user.setFailedAttempts(failedAttempts);
 
-        if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
-            user.setFailedAttempts(MAX_FAILED_ATTEMPTS);
+        if (failedAttempts >= properties.maxFailedAttempts()) {
+            user.setFailedAttempts(properties.maxFailedAttempts());
             user.setAccountLocked(true);
             user.setLockTime(LocalDateTime.now(clock));
             log.warn(
                     "Account locked after repeated login failures: userId={}",
                     user.getId()
             );
-            throw new AccountLockedException(ACCOUNT_LOCKED_MESSAGE);
+            throw new AccountLockedException(accountLockedMessage());
         }
     }
 
@@ -65,5 +60,10 @@ public class LoginAttemptService {
         user.setFailedAttempts(0);
         user.setAccountLocked(false);
         user.setLockTime(null);
+    }
+
+    private String accountLockedMessage() {
+        return "Account is temporarily locked. Try again in "
+                + properties.duration().toMinutes() + " minutes";
     }
 }
